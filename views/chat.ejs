@@ -1,150 +1,1115 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>IT Assistant | BlockAidex</title>
+    <script>window.tailwind = window.tailwind || {}; window.tailwind.config = { darkMode: 'class' };</script>
+    <script>
+      let savedTheme = 'dark';
+      try {
+        savedTheme = localStorage.getItem('blockaidex-theme') === 'light' ? 'light' : 'dark';
+      } catch (error) {
+        console.warn('The saved display theme could not be read.', error);
+      }
+      document.documentElement.dataset.theme = savedTheme;
+      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+      document.documentElement.style.colorScheme = savedTheme;
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+    <style>
+      .markdown-body p + p { margin-top: 0.75rem; }
+      .markdown-body ul { list-style: disc; margin: 0.5rem 0 0.5rem 1.25rem; }
+      .markdown-body ol { list-style: decimal; margin: 0.5rem 0 0.5rem 1.25rem; }
+      .markdown-body li + li { margin-top: 0.25rem; }
+      .markdown-body a { color: #0e7490; text-decoration: underline; }
+      .dark .markdown-body a { color: #22d3ee; }
+      .markdown-body pre { overflow-x: auto; border-radius: 0.5rem; background: #0f172a; padding: 0.75rem; }
+      .markdown-body code { border-radius: 0.25rem; background: rgb(148 163 184 / 0.18); padding: 0.1rem 0.25rem; }
+      .markdown-body pre code { background: transparent; padding: 0; }
+      .markdown-body blockquote { border-left: 2px solid #22d3ee; padding-left: 0.75rem; color: #94a3b8; }
+      .dark .markdown-body pre { background: #020617; }
+      html[data-theme='light'] {
+        --page-bg: #e5e9ef;
+        --page-fg: #111827;
+        --surface-bg: #eef1f5;
+        --conversation-bg: #e9edf2;
+        --bubble-bg: #dde4ec;
+        --border-color: #bcc6d2;
+        --muted-color: #334155;
+        color-scheme: light;
+      }
+      html[data-theme='dark'] {
+        --page-bg: #020617;
+        --page-fg: #f1f5f9;
+        --surface-bg: #0f172a;
+        --conversation-bg: rgb(15 23 42 / 0.7);
+        --bubble-bg: #020617;
+        --border-color: #1e293b;
+        --muted-color: #94a3b8;
+        color-scheme: dark;
+      }
+      body { background-color: var(--page-bg) !important; color: var(--page-fg) !important; }
+      #chat-sidebar, #chat-form, #chat-search { background-color: var(--surface-bg) !important; border-color: var(--border-color) !important; }
+      #conversation { background-color: var(--conversation-bg) !important; border-color: var(--border-color) !important; }
+      header, #chat-sidebar .border-b, #chat-sidebar .border-t { border-color: var(--border-color) !important; }
+      #conversation article > div:first-child:not(.bg-cyan-500), #typing-indicator {
+        background-color: var(--bubble-bg) !important;
+        border-color: var(--border-color) !important;
+        color: var(--page-fg) !important;
+      }
+      #history-list button:first-child, #chat-app [data-prompt], #theme-toggle {
+        background-color: var(--surface-bg) !important;
+        border-color: var(--border-color) !important;
+        color: var(--page-fg) !important;
+      }
+      #history-list button[aria-label^='Delete conversation'] { color: var(--muted-color) !important; }
+      #attach-button, #voice-button {
+        background-color: var(--surface-bg) !important;
+        border-color: var(--border-color) !important;
+        color: var(--page-fg) !important;
+      }
+      #attachment-preview {
+        background-color: var(--surface-bg) !important;
+        border-color: var(--border-color) !important;
+        color: var(--page-fg) !important;
+      }
+      header .text-slate-500, header .text-slate-600, header .text-slate-300 {
+        color: var(--muted-color) !important;
+      }
+      #chat-sidebar .text-slate-500, #chat-app .text-slate-500,
+      #chat-app .text-slate-600, #chat-app .text-slate-700,
+      #chat-app .text-slate-400 { color: var(--muted-color) !important; }
+      #chat-search, #message { color: var(--page-fg); }
+      #settings-dialog { background-color: var(--surface-bg); color: var(--page-fg); }
+      html[data-theme='light'] .markdown-body pre { background: #e2e8f0; }
+      @media print {
+        @page { margin: 18mm; }
+        body { background: #ffffff !important; color: #0f172a !important; }
+        #chat-sidebar, #sidebar-backdrop, header, #chat-app > :not(#conversation),
+        #closed-session, #error-message, #edit-indicator, #settings-dialog,
+        .message-actions, #typing-indicator, #attachment-preview,
+        #recording-indicator { display: none !important; }
+        #chat-app { display: block !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+        #conversation { display: block !important; min-height: 0 !important; overflow: visible !important; border: 0 !important; background: #ffffff !important; padding: 0 !important; }
+        #conversation::before { content: "BlockAidex Conversation"; display: block; margin-bottom: 1.5rem; font-size: 22pt; font-weight: 700; }
+        #conversation article { max-width: 100% !important; break-inside: avoid; margin-bottom: 1rem; }
+        #conversation article > div:first-child { color: #0f172a !important; background: #ffffff !important; border-color: #cbd5e1 !important; }
+        #conversation time, #conversation article > div:nth-child(2) { color: #475569 !important; }
+        .markdown-body a { color: #0f172a !important; }
+      }
+    </style>
   </head>
-  <body class="min-h-screen bg-slate-950 text-slate-100">
-    <div class="mx-auto flex min-h-screen max-w-6xl flex-col px-4 sm:px-6">
-      <header class="flex items-center justify-between border-b border-slate-800 py-5">
-        <a href="/chat" class="flex items-center gap-3">
-          <span class="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400 font-black text-slate-950">B</span>
-          <span class="text-lg font-semibold">BlockAidex <span class="font-normal text-slate-400">/ IT Assistant</span></span>
-        </a>
-        <div class="flex items-center gap-4">
-          <span class="hidden text-sm text-slate-400 sm:inline"><%= user.name || user.email %></span>
-          <% if (user.role === 'admin') { %>
-            <a href="/admin" class="text-sm text-cyan-300 hover:text-cyan-200">Admin</a>
-          <% } %>
-          <form action="/logout" method="post"><button class="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-slate-500">Log out</button></form>
+  <body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div id="sidebar-backdrop" class="fixed inset-0 z-20 hidden bg-slate-950/60 md:hidden"></div>
+    <div class="flex min-h-screen">
+      <aside id="chat-sidebar" class="fixed inset-y-0 left-0 z-30 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform dark:border-slate-800 dark:bg-slate-900 md:static md:translate-x-0">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+          <a href="/chat" class="flex items-center gap-3">
+            <span class="grid h-9 w-9 place-items-center rounded-xl bg-cyan-400 font-black text-slate-950">B</span>
+            <span class="font-semibold">BlockAidex</span>
+          </a>
+          <button id="collapse-sidebar" type="button" aria-label="Collapse chat history" class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white md:block">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 5v14"/></svg>
+          </button>
         </div>
-      </header>
-
-      <main class="flex flex-1 flex-col py-8">
-        <div class="mb-6">
-          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">Workplace help</p>
-          <h1 class="mt-2 text-3xl font-semibold tracking-tight">How can we help?</h1>
-          <p class="mt-2 text-slate-400">Ask about company IT procedures. Answers are grounded in the approved SOP library.</p>
+        <div class="p-4">
+          <button id="new-chat" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+            New chat
+          </button>
+          <label for="chat-search" class="sr-only">Search chat history</label>
+          <span class="relative mt-4 block">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"><circle cx="10.8" cy="10.8" r="6.8"/><path stroke-linecap="round" d="m16 16 4.5 4.5"/></svg>
+            <input id="chat-search" type="search" placeholder="Search conversations" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400">
+          </span>
         </div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+          <p class="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Chat history</p>
+          <div id="history-list" class="space-y-1" aria-live="polite"></div>
+          <p id="history-empty" class="hidden px-2 py-4 text-sm text-slate-500">No conversations found.</p>
+        </div>
+        <div class="border-t border-slate-200 p-4 dark:border-slate-800">
+          <p class="truncate text-sm font-medium"><%= user.name || user.email %></p>
+          <p class="text-xs text-slate-500"><%= user.email %></p>
+        </div>
+      </aside>
 
-        <section id="conversation" aria-live="polite" class="flex-1 space-y-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 sm:p-6">
-          <% if (!chatSession || !chatSession.messages || chatSession.messages.length === 0) { %>
-            <div id="empty-state" class="grid min-h-64 place-items-center text-center">
-              <div>
-                <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-cyan-400/10 text-2xl text-cyan-300">✦</div>
-                <p class="mt-4 font-medium">Your IT assistant is ready</p>
-                <p class="mt-1 text-sm text-slate-400">Try asking how to connect to the VPN or reset your password.</p>
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header class="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
+          <div class="flex items-center gap-3">
+            <button id="toggle-sidebar" type="button" aria-label="Open chat history" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h16"/></svg>
+            </button>
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">IT Assistant</span>
+          </div>
+          <div class="flex items-center gap-2 sm:gap-4">
+            <button id="chat-settings-button" type="button" aria-label="Chat settings" title="Chat settings" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-500 dark:border-slate-700 dark:text-slate-300">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m19.4 15 .1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 1 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a1.8 1.8 0 1 1 0-3.6h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 1 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 1 1 0 3.6h-.2a1.8 1.8 0 0 0-.9 3Z"/></svg>
+            </button>
+            <div id="export-control" class="relative">
+              <button id="export-button" type="button" aria-label="Export conversation" title="Export conversation" aria-haspopup="menu" aria-expanded="false" class="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-2 text-sm text-slate-600 transition hover:border-cyan-500 sm:px-3 dark:border-slate-700 dark:text-slate-300">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
+                <span class="hidden sm:inline">Export</span>
+              </button>
+              <div id="export-menu" role="menu" class="absolute right-0 z-10 mt-2 hidden w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                <button id="export-text" type="button" role="menuitem" class="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Download .txt</button>
+                <button id="export-pdf" type="button" role="menuitem" class="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Print / Save as PDF</button>
               </div>
             </div>
-          <% } else { %>
-            <% chatSession.messages.forEach((message) => { %>
-              <% if (message.sender !== 'system') { %>
-                <article class="max-w-3xl <%= message.sender === 'user' ? 'ml-auto' : '' %>">
-                  <div class="rounded-2xl px-4 py-3 <%= message.sender === 'user' ? 'bg-cyan-500 text-slate-950' : 'border border-slate-800 bg-slate-950 text-slate-100' %>">
-                    <p class="whitespace-pre-wrap break-words text-sm leading-6"><%= message.text %></p>
-                  </div>
-                  <% if (message.sender !== 'user' && message.citations && message.citations.length) { %>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                      <% message.citations.forEach((citation) => { %>
-                        <span class="rounded-full border border-cyan-900 bg-cyan-950/60 px-2.5 py-1 text-xs text-cyan-200">Source · <%= citation %></span>
-                      <% }) %>
-                      <% if (typeof message.latencyMs === 'number') { %>
-                        <span class="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-400"><%= message.latencyMs %> ms</span>
-                      <% } %>
-                    </div>
-                  <% } else if (message.sender !== 'user' && typeof message.latencyMs === 'number') { %>
-                    <span class="mt-2 inline-flex rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-400"><%= message.latencyMs %> ms</span>
-                  <% } %>
-                </article>
-              <% } %>
-            <% }) %>
-          <% } %>
-        </section>
+            <button id="theme-toggle" type="button" aria-pressed="true" aria-label="Switch to light mode" title="Switch to light mode" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-500 dark:border-slate-700 dark:text-slate-300">
+              <svg id="theme-sun-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><circle cx="12" cy="12" r="4"/><path stroke-linecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+              <svg id="theme-moon-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="hidden h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z"/></svg>
+            </button>
+            <% if (user.role === 'admin') { %>
+              <a href="/admin" class="hidden text-sm text-cyan-700 hover:text-cyan-600 dark:text-cyan-300 sm:inline">Admin</a>
+            <% } %>
+            <form action="/logout" method="post"><button class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500">Log out</button></form>
+          </div>
+        </header>
 
-        <div id="error-message" role="alert" class="mt-4 hidden rounded-xl border border-rose-900 bg-rose-950/60 px-4 py-3 text-sm text-rose-200"></div>
-        <form id="chat-form" class="mt-4 flex gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-2">
-          <label for="message" class="sr-only">Your question</label>
-          <textarea id="message" name="message" rows="2" maxlength="10000" required placeholder="Describe your IT question..." class="max-h-40 min-h-12 flex-1 resize-y bg-transparent px-3 py-2 text-sm outline-none placeholder:text-slate-500"></textarea>
-          <button id="send-button" type="submit" class="self-end rounded-xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">Send</button>
-        </form>
-        <p class="mt-3 text-center text-xs text-slate-500">Do not include passwords, MFA codes, or other sensitive information.</p>
-      </main>
+        <main id="chat-app" data-current-session-id="<%= chatSession ? chatSession._id : '' %>" class="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
+          <div class="mb-5">
+            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">Workplace help</p>
+            <h1 class="mt-2 text-3xl font-semibold tracking-tight">How can we help?</h1>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Ask about company IT procedures. Answers are grounded in the approved SOP library.</p>
+          </div>
+
+          <div id="conversation" aria-live="polite" aria-relevant="additions" class="min-h-[40vh] flex-1 space-y-5 overflow-y-auto rounded-2xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/70 sm:p-6"></div>
+
+          <div id="closed-session" class="mt-4 hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+            This conversation is closed. Start a new chat to continue with the IT assistant.
+          </div>
+
+          <div id="error-message" role="alert" class="mt-4 hidden items-start justify-between gap-4 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200">
+            <span id="error-text"></span>
+            <button id="dismiss-error" type="button" aria-label="Dismiss error" class="shrink-0 rounded px-1 text-lg leading-5 hover:bg-rose-100 dark:hover:bg-rose-900">×</button>
+          </div>
+
+          <div id="edit-indicator" class="mt-4 hidden items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:border-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-200">
+            <span>Editing a previous message. Messages after it will be replaced.</span>
+            <button id="cancel-edit" type="button" class="shrink-0 font-medium underline">Cancel</button>
+          </div>
+
+          <div class="mt-5">
+            <p class="mb-2 text-xs font-medium text-slate-500">Suggested prompts</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" data-prompt="How do I set up the VPN?" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition hover:border-cyan-500 hover:text-cyan-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-cyan-200">How do I set up the VPN?</button>
+              <button type="button" data-prompt="What is the password policy?" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition hover:border-cyan-500 hover:text-cyan-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-cyan-200">What is the password policy?</button>
+              <button type="button" data-prompt="Reset my password" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition hover:border-cyan-500 hover:text-cyan-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-cyan-200">Reset my password</button>
+              <button type="button" data-prompt="Create an IT support ticket" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition hover:border-cyan-500 hover:text-cyan-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-cyan-200">Create an IT support ticket</button>
+            </div>
+          </div>
+
+          <dialog id="settings-dialog" aria-labelledby="settings-title" class="w-[calc(100%-2rem)] max-w-md rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+            <form method="dialog" class="p-6">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="settings-title" class="text-xl font-semibold">Chat settings</h2>
+                  <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Choose how the IT assistant should phrase its replies. SOP grounding remains on.</p>
+                </div>
+                <button id="close-settings" type="button" aria-label="Close settings" class="rounded-lg px-2 py-1 text-xl leading-6 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">×</button>
+              </div>
+              <fieldset class="mt-6 space-y-3">
+                <legend class="mb-3 text-sm font-medium">AI tone</legend>
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <input type="radio" name="ai-tone" value="Friendly" class="mt-1 accent-cyan-500">
+                  <span><span class="block text-sm font-medium">Friendly</span><span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">Warm and conversational</span></span>
+                </label>
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <input type="radio" name="ai-tone" value="Professional" class="mt-1 accent-cyan-500">
+                  <span><span class="block text-sm font-medium">Professional</span><span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">Polished and structured</span></span>
+                </label>
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <input type="radio" name="ai-tone" value="Concise" class="mt-1 accent-cyan-500">
+                  <span><span class="block text-sm font-medium">Concise</span><span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">Brief and direct</span></span>
+                </label>
+              </fieldset>
+              <div class="mt-6 flex justify-end gap-3">
+                <button id="cancel-settings-button" type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Cancel</button>
+                <button id="save-settings" type="button" class="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300">Save settings</button>
+              </div>
+            </form>
+          </dialog>
+
+          <div id="attachment-preview" class="mb-2 hidden items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="m8 12.5 6.7-6.7a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 0 1-7.1-7.1l8.5-8.5"/></svg>
+            <span id="attachment-name" class="min-w-0 flex-1 truncate"></span>
+            <button id="remove-attachment" type="button" aria-label="Remove attachment" class="rounded px-1 text-lg leading-5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700">×</button>
+          </div>
+          <form id="chat-form" class="mt-4 flex gap-2 rounded-2xl border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
+            <label for="message" class="sr-only">Your question</label>
+            <textarea id="message" name="message" rows="2" maxlength="10000" required placeholder="Describe your IT question..." class="max-h-40 min-h-12 min-w-0 flex-1 resize-y bg-transparent px-3 py-2 text-sm outline-none placeholder:text-slate-500"></textarea>
+            <input id="attachment-input" type="file" accept=".txt,.md,.csv,.pdf,text/plain,text/markdown,text/csv,application/pdf" class="sr-only">
+            <div class="flex shrink-0 items-end gap-1">
+              <button id="attach-button" type="button" aria-label="Attach a file" title="Attach .txt, .md, .csv, or .pdf (max 5 MB)" class="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-cyan-500 hover:text-cyan-800 dark:border-slate-700 dark:text-slate-300 dark:hover:text-cyan-200">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="m8 12.5 6.7-6.7a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 0 1-7.1-7.1l8.5-8.5"/></svg>
+              </button>
+              <button id="voice-button" type="button" aria-label="Start voice input" title="Start voice input" aria-pressed="false" class="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-cyan-500 hover:text-cyan-800 dark:border-slate-700 dark:text-slate-300 dark:hover:text-cyan-200">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><rect x="9" y="3" width="6" height="12" rx="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 11a7 7 0 0 0 14 0m-7 7v3m-4 0h8"/></svg>
+              </button>
+              <button id="send-button" type="submit" class="self-end rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">Send</button>
+            </div>
+          </form>
+          <p id="recording-indicator" role="status" aria-live="polite" class="mt-2 hidden items-center gap-2 text-sm font-medium text-rose-700 dark:text-rose-300">
+            <span class="h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500"></span>
+            Listening… click the microphone to stop.
+          </p>
+          <p class="mt-3 text-center text-xs text-slate-500">Do not include passwords, MFA codes, or other sensitive information.</p>
+        </main>
+      </div>
     </div>
 
-    <script>
-      const form = document.getElementById('chat-form');
+    <script type="module">
+      import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+
+      const app = document.getElementById('chat-app');
+      const sidebar = document.getElementById('chat-sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      const historyList = document.getElementById('history-list');
+      const historyEmpty = document.getElementById('history-empty');
+      const searchInput = document.getElementById('chat-search');
       const conversation = document.getElementById('conversation');
+      const form = document.getElementById('chat-form');
       const messageInput = document.getElementById('message');
       const sendButton = document.getElementById('send-button');
-      const errorMessage = document.getElementById('error-message');
+      const attachmentInput = document.getElementById('attachment-input');
+      const attachButton = document.getElementById('attach-button');
+      const attachmentPreview = document.getElementById('attachment-preview');
+      const attachmentName = document.getElementById('attachment-name');
+      const voiceButton = document.getElementById('voice-button');
+      const recordingIndicator = document.getElementById('recording-indicator');
+      const errorBanner = document.getElementById('error-message');
+      const errorText = document.getElementById('error-text');
+      const closedBanner = document.getElementById('closed-session');
+      const editIndicator = document.getElementById('edit-indicator');
+      const themeButton = document.getElementById('theme-toggle');
+      const sunIcon = document.getElementById('theme-sun-icon');
+      const moonIcon = document.getElementById('theme-moon-icon');
+      const settingsDialog = document.getElementById('settings-dialog');
+      const exportButton = document.getElementById('export-button');
+      const exportMenu = document.getElementById('export-menu');
+      let currentSessionId = app.dataset.currentSessionId || null;
+      let currentSessionStatus = null;
+      let sessions = [];
+      let currentMessages = [];
+      let editingMessageIndex = null;
+      let activeRequestController = null;
+      let currentTone = 'Friendly';
+      let selectedAttachment = null;
+      let recognition = null;
+      let isRecording = false;
+      let voiceBaseText = '';
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      function addMessage(text, sender, citations, latencyMs) {
+      const initialThemeIsDark = document.documentElement.classList.contains('dark');
+      if (!SpeechRecognition) {
+        voiceButton.title = 'Voice input is not supported in this browser.';
+      }
+      themeButton.setAttribute('aria-pressed', String(initialThemeIsDark));
+      themeButton.setAttribute('aria-label', `Switch to ${initialThemeIsDark ? 'light' : 'dark'} mode`);
+      themeButton.title = `Switch to ${initialThemeIsDark ? 'light' : 'dark'} mode`;
+      sunIcon.classList.toggle('hidden', !initialThemeIsDark);
+      moonIcon.classList.toggle('hidden', initialThemeIsDark);
+      if (currentSessionId) {
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+      }
+      try {
+        const savedTone = localStorage.getItem('blockaidex-ai-tone');
+        if (['Friendly', 'Professional', 'Concise'].includes(savedTone)) {
+          currentTone = savedTone;
+        }
+      } catch (error) {
+        console.warn('The saved AI tone could not be read.', error);
+      }
+      document.querySelector(`input[name="ai-tone"][value="${currentTone}"]`).checked = true;
+
+      marked.setOptions({ breaks: true, gfm: true });
+
+      function showError(message) {
+        errorText.textContent = message;
+        errorBanner.classList.remove('hidden');
+        errorBanner.classList.add('flex');
+      }
+
+      function hideError() {
+        errorText.textContent = '';
+        errorBanner.classList.add('hidden');
+        errorBanner.classList.remove('flex');
+      }
+
+      async function readJson(response) {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'The request could not be completed.');
+        }
+        return data;
+      }
+
+      function setTheme(theme) {
+        const isDark = theme === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        themeButton.setAttribute('aria-pressed', String(isDark));
+        themeButton.setAttribute('aria-label', `Switch to ${isDark ? 'light' : 'dark'} mode`);
+        themeButton.title = `Switch to ${isDark ? 'light' : 'dark'} mode`;
+        sunIcon.classList.toggle('hidden', !isDark);
+        moonIcon.classList.toggle('hidden', isDark);
+        try {
+          localStorage.setItem('blockaidex-theme', theme);
+        } catch (error) {
+          console.warn('The display theme could not be saved.', error);
+        }
+      }
+
+      themeButton.addEventListener('click', () => {
+        setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+      });
+
+      function updateComposer() {
+        const closed = currentSessionId && currentSessionStatus !== 'active';
+        const generating = Boolean(activeRequestController);
+        closedBanner.classList.toggle('hidden', !closed);
+        messageInput.disabled = Boolean(closed || generating);
+        sendButton.disabled = Boolean(closed || (generating && sendButton.dataset.stopping === 'true'));
+        sendButton.textContent = generating
+          ? sendButton.dataset.stopping === 'true' ? 'Stopping…' : 'Stop generating'
+          : editingMessageIndex === null ? 'Send' : 'Save & resend';
+        messageInput.placeholder = closed
+          ? 'This conversation is closed'
+          : 'Describe your IT question...';
+        attachButton.disabled = Boolean(closed || generating || editingMessageIndex !== null);
+        attachmentInput.disabled = attachButton.disabled;
+        voiceButton.disabled = Boolean(closed || generating);
+        document.getElementById('new-chat').disabled = generating;
+        document.querySelectorAll('#history-list button').forEach((button) => {
+          button.disabled = generating;
+        });
+      }
+
+      function clearSelectedAttachment() {
+        selectedAttachment = null;
+        attachmentInput.value = '';
+        attachmentName.textContent = '';
+        attachmentPreview.classList.add('hidden');
+        attachmentPreview.classList.remove('flex');
+      }
+
+      function setSelectedAttachment(file) {
+        selectedAttachment = file;
+        attachmentName.textContent = file.name;
+        attachmentPreview.classList.remove('hidden');
+        attachmentPreview.classList.add('flex');
+      }
+
+      function setRecording(active) {
+        isRecording = active;
+        recordingIndicator.classList.toggle('hidden', !active);
+        recordingIndicator.classList.toggle('flex', active);
+        voiceButton.setAttribute('aria-pressed', String(active));
+        voiceButton.setAttribute('aria-label', active ? 'Stop voice input' : 'Start voice input');
+        voiceButton.title = active ? 'Stop voice input' : 'Start voice input';
+        voiceButton.classList.toggle('border-rose-500', active);
+        voiceButton.classList.toggle('text-rose-700', active);
+      }
+
+      function stopVoiceInput() {
+        if (recognition && isRecording) {
+          recognition.stop();
+          setRecording(false);
+        }
+      }
+
+      function toggleVoiceInput() {
+        if (!SpeechRecognition) {
+          showError('Voice input is not supported in this browser.');
+          return;
+        }
+
+        if (!recognition) {
+          recognition = new SpeechRecognition();
+          recognition.lang = navigator.language || 'en-US';
+          recognition.continuous = false;
+          recognition.interimResults = true;
+          recognition.onstart = () => setRecording(true);
+          recognition.onresult = (event) => {
+            let finalTranscript = '';
+            let interimTranscript = '';
+            for (let index = 0; index < event.results.length; index += 1) {
+              const result = event.results[index];
+              if (result.isFinal) {
+                finalTranscript += `${result[0].transcript} `;
+              } else {
+                interimTranscript += `${result[0].transcript} `;
+              }
+            }
+            const transcript = `${finalTranscript}${interimTranscript}`.trim();
+            messageInput.value = [voiceBaseText, transcript].filter(Boolean).join(' ');
+          };
+          recognition.onerror = (event) => {
+            setRecording(false);
+            if (event.error === 'aborted') return;
+            const messages = {
+              'not-allowed': 'Allow microphone access in your browser to use voice input.',
+              'service-not-allowed': 'Voice input is blocked by this browser or device.',
+              'no-speech': 'No speech was detected. Try again.',
+              network: 'Voice transcription is unavailable right now.',
+            };
+            showError(messages[event.error] || 'Voice input could not be started.');
+          };
+          recognition.onend = () => setRecording(false);
+        }
+
+        if (isRecording) {
+          recognition.stop();
+          setRecording(false);
+          return;
+        }
+
+        voiceBaseText = messageInput.value.trim();
+        try {
+          recognition.start();
+          setRecording(true);
+        } catch {
+          setRecording(false);
+          showError('Voice input could not be started. Check microphone permissions and try again.');
+        }
+      }
+
+      function beginEdit(messageIndex) {
+        if (currentSessionStatus !== 'active' || activeRequestController) return;
+        const message = currentMessages[messageIndex];
+        if (!message || message.sender !== 'user') return;
+        clearSelectedAttachment();
+        editingMessageIndex = messageIndex;
+        messageInput.value = message.text;
+        editIndicator.classList.remove('hidden');
+        editIndicator.classList.add('flex');
+        updateComposer();
+        messageInput.focus();
+      }
+
+      function cancelEdit() {
+        editingMessageIndex = null;
+        messageInput.value = '';
+        editIndicator.classList.add('hidden');
+        editIndicator.classList.remove('flex');
+        updateComposer();
+      }
+
+      function formatTime(value) {
+        const timestamp = value ? new Date(value) : new Date();
+        if (Number.isNaN(timestamp.getTime())) return '';
+        return timestamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+
+      function renderEmptyState() {
+        const wrapper = document.createElement('div');
+        wrapper.dataset.emptyState = 'true';
+        wrapper.className = 'grid min-h-64 place-items-center text-center';
+        wrapper.innerHTML = '<div><div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-cyan-400/10 text-2xl text-cyan-700 dark:text-cyan-300">✦</div><p class="mt-4 font-medium">Your IT assistant is ready</p><p class="mt-1 text-sm text-slate-500">Try asking how to connect to the VPN or reset your password.</p></div>';
+        conversation.appendChild(wrapper);
+      }
+
+      function appendMessage(message, messageIndex) {
+        if (message.sender === 'system') return;
+        const isUser = message.sender === 'user';
         const article = document.createElement('article');
-        article.className = `max-w-3xl ${sender === 'user' ? 'ml-auto' : ''}`;
-        const bubble = document.createElement('div');
-        bubble.className = sender === 'user'
-          ? 'rounded-2xl bg-cyan-500 px-4 py-3 text-slate-950'
-          : 'rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100';
-        const paragraph = document.createElement('p');
-        paragraph.className = 'whitespace-pre-wrap break-words text-sm leading-6';
-        paragraph.textContent = text;
-        bubble.appendChild(paragraph);
-        article.appendChild(bubble);
+        article.className = `max-w-3xl ${isUser ? 'ml-auto' : ''}`;
+        article.dataset.messageIndex = String(messageIndex);
 
-        if (sender !== 'user') {
+        const bubble = document.createElement('div');
+        bubble.className = isUser
+          ? 'rounded-2xl bg-cyan-500 px-4 py-3 text-slate-950'
+          : 'rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100';
+        const content = document.createElement('div');
+        content.className = 'break-words text-sm leading-6';
+        if (message.sender === 'AI') {
+          content.classList.add('markdown-body');
+          content.innerHTML = DOMPurify.sanitize(marked.parse(message.text || ''), {
+            FORBID_TAGS: ['img'],
+          });
+        } else {
+          content.classList.add('whitespace-pre-wrap');
+          content.textContent = message.text || '';
+        }
+        bubble.appendChild(content);
+        article.appendChild(bubble);
+        if (isUser && typeof message.attachmentName === 'string' && message.attachmentName) {
+          const attachmentBadge = document.createElement('span');
+          attachmentBadge.className = 'mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
+          attachmentBadge.textContent = `Attached · ${message.attachmentName}`;
+          article.appendChild(attachmentBadge);
+        }
+
+        if (!isUser && (message.sender === 'AI' || message.citations?.length || typeof message.latencyMs === 'number')) {
           const tags = document.createElement('div');
           tags.className = 'mt-2 flex flex-wrap gap-2';
-          (citations || []).forEach((citation) => {
+          (message.citations || []).forEach((citation) => {
             const badge = document.createElement('span');
-            badge.className = 'rounded-full border border-cyan-900 bg-cyan-950/60 px-2.5 py-1 text-xs text-cyan-200';
+            badge.className = 'rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs text-cyan-800 dark:border-cyan-900 dark:bg-cyan-950/60 dark:text-cyan-200';
             badge.textContent = `Source · ${citation}`;
             tags.appendChild(badge);
           });
-          if (typeof latencyMs === 'number') {
+          if (typeof message.latencyMs === 'number') {
             const badge = document.createElement('span');
-            badge.className = 'rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-400';
-            badge.textContent = `${latencyMs} ms`;
+            badge.className = 'rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400';
+            badge.textContent = `${message.latencyMs} ms`;
             tags.appendChild(badge);
           }
           article.appendChild(tags);
+        }
+
+        const time = document.createElement('time');
+        time.className = `mt-1 block text-xs text-slate-500 ${isUser ? 'text-right' : ''}`;
+        time.dateTime = message.timestamp || new Date().toISOString();
+        time.textContent = formatTime(message.timestamp);
+        article.appendChild(time);
+
+        if (isUser || message.sender === 'AI') {
+          const actions = document.createElement('div');
+          actions.className = 'message-actions mt-2 flex gap-3 text-xs';
+          if (isUser) {
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.textContent = 'Edit message';
+            const temporaryAttachment = Boolean(message.attachmentName);
+            editButton.disabled = currentSessionStatus !== 'active' || temporaryAttachment;
+            if (temporaryAttachment) {
+              editButton.title = 'File contents are temporary. Send a new request with the file attached to change the prompt.';
+            }
+            editButton.className = 'text-slate-500 underline-offset-2 hover:text-cyan-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:text-cyan-300';
+            editButton.addEventListener('click', () => beginEdit(messageIndex));
+            actions.appendChild(editButton);
+          } else {
+            const copyButton = document.createElement('button');
+            copyButton.type = 'button';
+            copyButton.textContent = 'Copy';
+            copyButton.className = 'text-slate-500 underline-offset-2 hover:text-cyan-700 hover:underline dark:text-slate-400 dark:hover:text-cyan-300';
+            copyButton.addEventListener('click', () => copyMessage(message.text || '', copyButton));
+            const regenerateButton = document.createElement('button');
+            regenerateButton.type = 'button';
+            regenerateButton.textContent = 'Regenerate';
+            const precedingUserMessage = currentMessages
+              .slice(0, messageIndex)
+              .reverse()
+              .find((candidate) => candidate.sender === 'user');
+            const temporaryAttachment = Boolean(precedingUserMessage && precedingUserMessage.attachmentName);
+            regenerateButton.disabled = currentSessionStatus !== 'active' || temporaryAttachment;
+            if (temporaryAttachment) {
+              regenerateButton.title = 'File contents are temporary. Send the request again with the file attached.';
+            }
+            regenerateButton.className = 'text-slate-500 underline-offset-2 hover:text-cyan-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:text-cyan-300';
+            regenerateButton.addEventListener('click', () => regenerateMessage(messageIndex));
+            actions.append(copyButton, regenerateButton);
+          }
+          article.appendChild(actions);
         }
 
         conversation.appendChild(article);
         conversation.scrollTop = conversation.scrollHeight;
       }
 
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const message = messageInput.value.trim();
-        if (!message) return;
+      function renderConversation(messages) {
+        conversation.replaceChildren();
+        currentMessages = Array.isArray(messages) ? messages : [];
+        const visibleMessages = currentMessages
+          .map((message, index) => ({ message, index }))
+          .filter(({ message }) => message.sender !== 'system');
+        if (!visibleMessages.length) {
+          renderEmptyState();
+          updateExportAvailability();
+          return;
+        }
+        visibleMessages.forEach(({ message, index }) => appendMessage(message, index));
+        conversation.scrollTop = conversation.scrollHeight;
+        updateExportAvailability();
+      }
 
-        errorMessage.textContent = '';
-        errorMessage.classList.add('hidden');
-        sendButton.disabled = true;
-        addMessage(message, 'user', [], null);
-        messageInput.value = '';
+      function appendConversationMessage(message) {
+        const messageIndex = currentMessages.length;
+        currentMessages.push(message);
+        appendMessage(message, messageIndex);
+        updateExportAvailability();
+      }
 
-        try {
-          const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ message }),
-          });
-          const result = await response.json();
-          if (!response.ok) {
-            throw new Error(result.error || 'Your message could not be processed.');
+      function updateExportAvailability() {
+        exportButton.disabled = !currentMessages.some(
+          (message) => message.sender === 'user' || message.sender === 'AI'
+        );
+        exportButton.classList.toggle('cursor-not-allowed', exportButton.disabled);
+        exportButton.classList.toggle('opacity-50', exportButton.disabled);
+      }
+
+      function getConversationText() {
+        const lines = [
+          'BlockAidex Conversation',
+          `Exported: ${new Date().toLocaleString()}`,
+          '',
+        ];
+        currentMessages.forEach((message) => {
+          if (message.sender !== 'user' && message.sender !== 'AI') return;
+          const date = new Date(message.timestamp);
+          const timestamp = Number.isNaN(date.getTime()) ? 'Unknown time' : date.toISOString();
+          const speaker = message.sender === 'user' ? 'You' : 'BlockAidex';
+          lines.push(`[${timestamp}] ${speaker}:`, message.text || '');
+          if (message.sender === 'user' && message.attachmentName) {
+            lines.push(`Attached file: ${message.attachmentName}`);
           }
-          addMessage(result.reply, 'AI', result.citations, result.latencyMs);
+          if (message.sender === 'AI' && message.citations && message.citations.length) {
+            lines.push(`SOP citations: ${message.citations.join(', ')}`);
+          }
+          lines.push('');
+        });
+        return lines.join('\n');
+      }
+
+      function downloadConversation() {
+        if (exportButton.disabled) return;
+        const blob = new Blob([getConversationText()], { type: 'text/plain;charset=utf-8' });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = `blockaidex-chat-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      }
+
+      async function copyMessage(text, button) {
+        try {
+          if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+            throw new Error('Clipboard access is unavailable in this browser.');
+          }
+          await navigator.clipboard.writeText(text);
+          button.textContent = 'Copied';
+          window.setTimeout(() => {
+            button.textContent = 'Copy';
+          }, 1500);
         } catch (error) {
-          errorMessage.textContent = error.message || 'A connection error occurred.';
-          errorMessage.classList.remove('hidden');
-        } finally {
-          sendButton.disabled = false;
+          showError(error.message || 'The message could not be copied.');
+        }
+      }
+
+      function addTypingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.id = 'typing-indicator';
+        indicator.className = 'flex items-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950';
+        indicator.setAttribute('aria-label', 'Assistant is typing');
+        for (let index = 0; index < 3; index += 1) {
+          const dot = document.createElement('span');
+          dot.className = 'h-2 w-2 animate-bounce rounded-full bg-cyan-500';
+          dot.style.animationDelay = `${index * 120}ms`;
+          indicator.appendChild(dot);
+        }
+        const article = document.createElement('article');
+        article.className = 'max-w-3xl';
+        article.appendChild(indicator);
+        conversation.appendChild(article);
+        conversation.scrollTop = conversation.scrollHeight;
+        return article;
+      }
+
+      function renderHistory() {
+        const term = searchInput.value.trim().toLowerCase();
+        const filtered = sessions.filter((session) => session.title.toLowerCase().includes(term));
+        historyList.replaceChildren();
+        historyEmpty.classList.toggle('hidden', filtered.length > 0);
+
+        filtered.forEach((session) => {
+          const row = document.createElement('div');
+          row.className = 'group flex items-center gap-1';
+          const selectButton = document.createElement('button');
+          selectButton.type = 'button';
+          selectButton.disabled = Boolean(activeRequestController);
+          selectButton.className = `min-w-0 flex-1 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800 ${session.id === currentSessionId ? 'bg-slate-100 text-slate-950 dark:bg-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`;
+          selectButton.title = session.title;
+          const title = document.createElement('span');
+          title.className = 'block truncate';
+          title.textContent = session.title;
+          const status = document.createElement('span');
+          status.className = 'mt-1 block text-xs capitalize text-slate-500';
+          status.textContent = session.status;
+          selectButton.append(title, status);
+          selectButton.addEventListener('click', () => loadConversationById(session.id));
+
+          const deleteButton = document.createElement('button');
+          deleteButton.type = 'button';
+          deleteButton.disabled = Boolean(activeRequestController);
+          deleteButton.setAttribute('aria-label', `Delete conversation: ${session.title}`);
+          deleteButton.title = 'Delete conversation';
+          deleteButton.className = 'rounded-lg p-2 text-slate-400 opacity-70 transition hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100';
+          deleteButton.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3"/></svg>';
+          deleteButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            deleteConversation(session.id);
+          });
+          row.append(selectButton, deleteButton);
+          historyList.appendChild(row);
+        });
+      }
+
+      async function loadHistory() {
+        const result = await readJson(await fetch('/api/chat/sessions', {
+          headers: { Accept: 'application/json' },
+        }));
+        sessions = result.sessions || [];
+        renderHistory();
+      }
+
+      async function loadConversationById(sessionId) {
+        hideError();
+        stopVoiceInput();
+        clearSelectedAttachment();
+        try {
+          const session = await readJson(await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId)}`, {
+            headers: { Accept: 'application/json' },
+          }));
+          currentSessionId = session.id;
+          currentSessionStatus = session.status;
+          renderConversation(session.messages);
+          updateComposer();
+          renderHistory();
+          if (window.matchMedia('(max-width: 767px)').matches) setSidebarOpen(false);
+        } catch (error) {
+          if (currentSessionId === sessionId) {
+            currentSessionId = null;
+            currentSessionStatus = null;
+            renderConversation([]);
+            updateComposer();
+          }
+          showError(error.message || 'This conversation could not be loaded.');
+        }
+      }
+
+      async function createNewChat() {
+        hideError();
+        stopVoiceInput();
+        clearSelectedAttachment();
+        try {
+          const created = await readJson(await fetch('/api/chat/sessions', {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+          }));
+          currentSessionId = created.id;
+          currentSessionStatus = created.status;
+          renderConversation([]);
+          updateComposer();
+          await loadHistory();
           messageInput.focus();
+          if (window.matchMedia('(max-width: 767px)').matches) setSidebarOpen(false);
+        } catch (error) {
+          showError(error.message || 'A new conversation could not be started.');
+        }
+      }
+
+      async function deleteConversation(sessionId) {
+        if (!window.confirm('Delete this conversation? This cannot be undone.')) return;
+        hideError();
+        try {
+          const response = await fetch(`/api/chat/${encodeURIComponent(sessionId)}`, {
+            method: 'DELETE',
+            headers: { Accept: 'application/json' },
+          });
+          if (!response.ok) {
+            await readJson(response);
+          }
+          sessions = sessions.filter((session) => session.id !== sessionId);
+          if (currentSessionId === sessionId) {
+            currentSessionId = null;
+            currentSessionStatus = null;
+            renderConversation([]);
+            updateComposer();
+          }
+          renderHistory();
+        } catch (error) {
+          showError(error.message || 'This conversation could not be deleted.');
+        }
+      }
+
+      async function performGeneration({ url, method = 'POST', body, optimisticMessage, refreshOnFailure = false }) {
+        if (activeRequestController) return;
+        hideError();
+        const controller = new AbortController();
+        activeRequestController = controller;
+        sendButton.dataset.stopping = 'false';
+        updateComposer();
+
+        if (optimisticMessage) {
+          conversation.querySelector('[data-empty-state]')?.remove();
+          appendConversationMessage(optimisticMessage);
+          messageInput.value = '';
+        }
+
+        const typingIndicator = addTypingIndicator();
+        try {
+          const isMultipart = body instanceof FormData;
+          const response = await fetch(url, {
+            method,
+            headers: isMultipart
+              ? { Accept: 'application/json' }
+              : { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: isMultipart ? body : JSON.stringify(body),
+            signal: controller.signal,
+          });
+          const result = await readJson(response);
+          typingIndicator.remove();
+          if (isMultipart) clearSelectedAttachment();
+          currentSessionId = result.chatSessionId || currentSessionId;
+          currentSessionStatus = result.status || currentSessionStatus || 'active';
+
+          if (Array.isArray(result.messages)) {
+            renderConversation(result.messages);
+          } else {
+            if (result.userMessageText && optimisticMessage && currentMessages.length) {
+              currentMessages[currentMessages.length - 1].text = result.userMessageText;
+              renderConversation(currentMessages);
+            }
+            if (result.reply) {
+              appendConversationMessage({
+                sender: 'AI',
+                text: result.reply,
+                citations: result.citations,
+                latencyMs: result.latencyMs,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+
+          editingMessageIndex = null;
+          messageInput.value = '';
+          editIndicator.classList.add('hidden');
+          editIndicator.classList.remove('flex');
+          updateComposer();
+          try {
+            await loadHistory();
+          } catch (error) {
+            showError('The reply was received, but chat history could not be refreshed.');
+          }
+        } catch (error) {
+          typingIndicator.remove();
+          if (refreshOnFailure && currentSessionId) {
+            try {
+              const session = await readJson(await fetch(
+                `/api/chat/sessions/${encodeURIComponent(currentSessionId)}`,
+                { headers: { Accept: 'application/json' } }
+              ));
+              currentSessionStatus = session.status;
+              renderConversation(session.messages);
+              updateComposer();
+            } catch (refreshError) {
+              console.error('The conversation could not be refreshed after a failed action.', refreshError);
+            }
+          }
+          showError(error.name === 'AbortError'
+            ? 'Stopped waiting for the response. The server may finish processing this request.'
+            : error.message || 'A connection error occurred.');
+        } finally {
+          activeRequestController = null;
+          sendButton.dataset.stopping = 'false';
+          updateComposer();
+          if (!messageInput.disabled) messageInput.focus();
+        }
+      }
+
+      function regenerateMessage(messageIndex) {
+        if (!currentSessionId || currentSessionStatus !== 'active') return;
+        performGeneration({
+          url: `/api/chat/${encodeURIComponent(currentSessionId)}/messages/${messageIndex}/regenerate`,
+          body: { tone: currentTone },
+          refreshOnFailure: true,
+        });
+      }
+
+      function setSidebarOpen(open) {
+        if (window.matchMedia('(min-width: 768px)').matches) {
+          sidebar.classList.toggle('md:hidden', !open);
+          return;
+        }
+        sidebar.classList.remove('md:hidden');
+        sidebar.classList.toggle('-translate-x-full', !open);
+        backdrop.classList.toggle('hidden', !open);
+      }
+
+      document.getElementById('new-chat').addEventListener('click', createNewChat);
+      document.getElementById('toggle-sidebar').addEventListener('click', () => setSidebarOpen(true));
+      document.getElementById('collapse-sidebar').addEventListener('click', () => setSidebarOpen(false));
+      backdrop.addEventListener('click', () => setSidebarOpen(false));
+      document.getElementById('dismiss-error').addEventListener('click', hideError);
+      searchInput.addEventListener('input', renderHistory);
+      document.getElementById('cancel-edit').addEventListener('click', cancelEdit);
+      attachButton.addEventListener('click', () => attachmentInput.click());
+      attachmentInput.addEventListener('change', () => {
+        const file = attachmentInput.files && attachmentInput.files[0];
+        if (!file) return;
+
+        const extension = file.name.toLowerCase().split('.').pop();
+        if (!['txt', 'md', 'csv', 'pdf'].includes(extension)) {
+          clearSelectedAttachment();
+          showError('Attach a .txt, .md, .csv, or .pdf file.');
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          clearSelectedAttachment();
+          showError('Attachments must be 5 MB or smaller.');
+          return;
+        }
+
+        hideError();
+        setSelectedAttachment(file);
+      });
+      document.getElementById('remove-attachment').addEventListener('click', clearSelectedAttachment);
+      voiceButton.addEventListener('click', toggleVoiceInput);
+
+      document.getElementById('chat-settings-button').addEventListener('click', () => {
+        document.querySelector(`input[name="ai-tone"][value="${currentTone}"]`).checked = true;
+        settingsDialog.showModal();
+      });
+      document.getElementById('close-settings').addEventListener('click', () => settingsDialog.close());
+      document.getElementById('cancel-settings-button').addEventListener('click', () => settingsDialog.close());
+      settingsDialog.addEventListener('click', (event) => {
+        if (event.target === settingsDialog) settingsDialog.close();
+      });
+      document.getElementById('save-settings').addEventListener('click', () => {
+        const selectedTone = document.querySelector('input[name="ai-tone"]:checked');
+        if (!selectedTone) {
+          showError('Choose an AI tone before saving settings.');
+          return;
+        }
+        currentTone = selectedTone.value;
+        try {
+          localStorage.setItem('blockaidex-ai-tone', currentTone);
+        } catch (error) {
+          console.warn('The AI tone could not be saved.', error);
+        }
+        settingsDialog.close();
+      });
+
+      exportButton.addEventListener('click', () => {
+        if (exportButton.disabled) return;
+        const showMenu = exportMenu.classList.contains('hidden');
+        exportMenu.classList.toggle('hidden', !showMenu);
+        exportButton.setAttribute('aria-expanded', String(showMenu));
+      });
+      document.getElementById('export-text').addEventListener('click', () => {
+        exportMenu.classList.add('hidden');
+        exportButton.setAttribute('aria-expanded', 'false');
+        downloadConversation();
+      });
+      document.getElementById('export-pdf').addEventListener('click', () => {
+        exportMenu.classList.add('hidden');
+        exportButton.setAttribute('aria-expanded', 'false');
+        window.print();
+      });
+      document.addEventListener('click', (event) => {
+        if (!document.getElementById('export-control').contains(event.target)) {
+          exportMenu.classList.add('hidden');
+          exportButton.setAttribute('aria-expanded', 'false');
         }
       });
+
+      document.querySelectorAll('[data-prompt]').forEach((button) => {
+        button.addEventListener('click', () => {
+          if (messageInput.disabled) return;
+          messageInput.value = button.dataset.prompt;
+          messageInput.focus();
+        });
+      });
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        stopVoiceInput();
+        if (activeRequestController) {
+          sendButton.dataset.stopping = 'true';
+          activeRequestController.abort();
+          updateComposer();
+          return;
+        }
+
+        const message = messageInput.value.trim();
+        if (!message || sendButton.disabled) return;
+
+        if (editingMessageIndex !== null) {
+          if (!currentSessionId) {
+            showError('Select an active conversation before editing a message.');
+            return;
+          }
+          performGeneration({
+            url: `/api/chat/${encodeURIComponent(currentSessionId)}/messages/${editingMessageIndex}`,
+            method: 'PATCH',
+            body: { message, tone: currentTone },
+            refreshOnFailure: true,
+          });
+        } else {
+          if (!currentSessionId) {
+            sendButton.disabled = true;
+            sendButton.textContent = 'Starting…';
+            messageInput.disabled = true;
+            try {
+              const created = await readJson(await fetch('/api/chat/sessions', {
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+              }));
+              currentSessionId = created.id;
+              currentSessionStatus = created.status;
+              await loadHistory();
+            } catch (error) {
+              showError(error.message || 'A new conversation could not be started.');
+              updateComposer();
+              return;
+            }
+            updateComposer();
+          }
+
+          let body = {
+            message,
+            tone: currentTone,
+            ...(currentSessionId ? { sessionId: currentSessionId } : {}),
+          };
+          if (selectedAttachment) {
+            const formData = new FormData();
+            formData.append('message', message);
+            formData.append('tone', currentTone);
+            if (currentSessionId) formData.append('sessionId', currentSessionId);
+            formData.append('attachment', selectedAttachment);
+            body = formData;
+          }
+
+          performGeneration({
+            url: '/api/chat',
+            body,
+            optimisticMessage: {
+              sender: 'user',
+              text: message,
+              ...(selectedAttachment ? { attachmentName: selectedAttachment.name } : {}),
+              timestamp: new Date().toISOString(),
+            },
+            refreshOnFailure: true,
+          });
+        }
+      });
+
+      async function initialize() {
+        try {
+          await loadHistory();
+          if (currentSessionId) {
+            await loadConversationById(currentSessionId);
+          } else {
+            currentSessionStatus = null;
+            renderConversation([]);
+            updateComposer();
+          }
+        } catch (error) {
+          showError(error.message || 'Chat history could not be loaded.');
+          renderConversation([]);
+        }
+      }
+
+      initialize();
     </script>
   </body>
 </html>

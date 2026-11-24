@@ -35,13 +35,17 @@ function redactPII(req, res, next) {
   if (req.body && typeof req.body.message === 'string') {
     req.body.message = redactText(req.body.message);
   }
+  if (typeof req.attachmentText === 'string') {
+    req.attachmentText = redactText(req.attachmentText);
+  }
 
   return next();
 }
 
 function blockPromptInjection(req, res, next) {
   const message = req.body && req.body.message;
-  if (containsPromptInjection(message)) {
+  const attachmentText = req.attachmentText;
+  if (containsPromptInjection(message) || containsPromptInjection(attachmentText)) {
     return res.status(400).json({
       error: 'Security warning',
       message: 'This request contains a prohibited instruction pattern.',

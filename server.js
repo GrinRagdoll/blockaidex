@@ -55,9 +55,15 @@ app.use((error, req, res, next) => {
         : 400
       : Number.isInteger(error.statusCode) && error.statusCode >= 400
         ? error.statusCode
+        : [429, 503].includes(error.status)
+          ? error.status
         : 500;
   const message =
-    statusCode >= 500 ? 'An unexpected server error occurred.' : error.message;
+    statusCode === 429 || statusCode === 503
+      ? 'The AI service is temporarily busy. Please retry shortly.'
+      : statusCode >= 500
+        ? 'An unexpected server error occurred.'
+        : error.message;
 
   console.error(`Request failed (${statusCode}):\n${formatErrorStack(error)}`);
   return res.status(statusCode).json({ error: message });

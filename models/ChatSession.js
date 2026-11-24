@@ -10,6 +10,10 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    attachmentName: {
+      type: String,
+      maxlength: 255,
+    },
     citations: {
       type: [String],
       default: [],

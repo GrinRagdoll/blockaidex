@@ -5,11 +5,13 @@ const path = require('node:path');
 const { PDFParse } = require('pdf-parse');
 const ChatSession = require('../models/ChatSession');
 const aiService = require('../services/aiService');
+const actionService = require('../services/actionService');
 const { authenticateToken, requirePageAuth } = require('../middleware/auth');
-const { blockPromptInjection, redactPII } = require('../middleware/guardrails');
+const { blockPromptInjection, redactPII, redactText } = require('../middleware/guardrails');
 
 const router = express.Router();
 const ALLOWED_TONES = new Set(['Friendly', 'Professional', 'Concise']);
+const ALLOWED_PRIORITIES = new Set(['low', 'medium', 'high', 'urgent']);
 const ALLOWED_ATTACHMENT_EXTENSIONS = new Set(['.txt', '.md', '.csv', '.pdf']);
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 const MAX_ATTACHMENT_CHARACTERS = 20000;
@@ -131,7 +133,10 @@ async function generateAndSaveReply(
   user,
   tone,
   allowActions = true,
-  userContext = ''
+  userContext = '',
+  history = [],
+  pendingMessageId = null,
+  pendingUserMessageId = null
 ) {
   const chatSessionId = String(sessionId);
   const result = await aiService.generateAnswer(message, {
@@ -140,24 +145,96 @@ async function generateAndSaveReply(
     tone,
     allowActions,
     userContext,
+    history,
   });
   const chatSession = await ChatSession.findById(sessionId);
   if (!chatSession) {
     throw createHttpError(500, 'The chat session could not be reloaded.');
   }
 
-  chatSession.messages.push({
-    sender: 'AI',
-    text: result.reply,
-    citations: result.citations,
-    latencyMs: result.latencyMs,
-    timestamp: new Date(),
-  });
+  if (pendingMessageId) {
+    const pendingMessage = chatSession.messages.id(pendingMessageId);
+    if (!pendingMessage || !pendingMessage.pending) {
+      throw createHttpError(409, 'The pending assistant reply could not be found.');
+    }
+    pendingMessage.text = result.reply;
+    pendingMessage.citations = result.citations;
+    pendingMessage.latencyMs = result.latencyMs;
+    pendingMessage.pending = false;
+  } else {
+    chatSession.messages.push({
+      sender: 'AI',
+      text: result.reply,
+      citations: result.citations,
+      latencyMs: result.latencyMs,
+      timestamp: new Date(),
+    });
+  }
+  if (pendingUserMessageId) {
+    const pendingUserMessage = chatSession.messages.id(pendingUserMessageId);
+    if (pendingUserMessage) {
+      pendingUserMessage.pending = false;
+    }
+  }
   if (chatSession.status === 'active') {
     chatSession.resolvedBy = 'AI';
   }
   await chatSession.save();
   return { result, chatSession };
+}
+
+async function finishPendingReply(options) {
+  const {
+    sessionId,
+    userMessageId,
+    assistantMessageId,
+    message,
+    user,
+    tone,
+    userContext,
+    history,
+  } = options;
+  try {
+    await generateAndSaveReply(
+      sessionId,
+      message,
+      user,
+      tone,
+      true,
+      userContext,
+      history,
+      assistantMessageId,
+      userMessageId
+    );
+  } catch (error) {
+    console.error('Background assistant response failed:', error);
+    let chatSession;
+    try {
+      chatSession = await ChatSession.findById(sessionId);
+    } catch (loadError) {
+      console.error('The pending chat session could not be reloaded after generation failed:', loadError);
+      return;
+    }
+    if (!chatSession) {
+      console.error(`Pending chat session ${String(sessionId)} was not found after generation failed.`);
+      return;
+    }
+
+    const assistantMessage = chatSession.messages.id(assistantMessageId);
+    const userMessage = chatSession.messages.id(userMessageId);
+    if (assistantMessage && assistantMessage.pending) {
+      assistantMessage.text = 'Sorry, I could not complete that response. Please try again.';
+      assistantMessage.pending = false;
+    }
+    if (userMessage) {
+      userMessage.pending = false;
+    }
+    try {
+      await chatSession.save();
+    } catch (saveError) {
+      console.error('The assistant failure state could not be saved:', saveError);
+    }
+  }
 }
 
 function getMessageIndex(value) {
@@ -166,6 +243,12 @@ function getMessageIndex(value) {
   }
   const index = Number(value);
   return Number.isSafeInteger(index) ? index : null;
+}
+
+function getConversationHistory(chatSession, currentMessageIndex) {
+  return chatSession.messages
+    .slice(Math.max(0, currentMessageIndex - 5), currentMessageIndex)
+    .map((message) => ({ sender: message.sender, text: message.text }));
 }
 
 router.get('/chat', requirePageAuth, async (req, res, next) => {
@@ -179,6 +262,33 @@ router.get('/chat', requirePageAuth, async (req, res, next) => {
       .sort({ updatedAt: -1 })
       .select('_id status')
       .lean();
+
+    return res.render('chat', { user: req.user, chatSession });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/chat/:id', requirePageAuth, async (req, res, next) => {
+  try {
+    const userId = getUserId(req.user);
+    if (!userId) {
+      return res.redirect('/login');
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.redirect('/chat');
+    }
+
+    const chatSession = await ChatSession.findOne({
+      _id: req.params.id,
+      userId,
+    })
+      .select('_id status')
+      .lean();
+    if (!chatSession) {
+      return res.redirect('/chat');
+    }
 
     return res.render('chat', { user: req.user, chatSession });
   } catch (error) {
@@ -275,6 +385,148 @@ router.get(
   }
 );
 
+router.get('/api/chat/:sessionId', authenticateToken, async (req, res, next) => {
+  try {
+    const userId = getUserId(req.user);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const session = await findOwnedSession(req.params.sessionId, userId);
+    if (!session) {
+      return res.status(404).json({ error: 'Conversation not found.' });
+    }
+
+    return res.json({
+      id: String(session._id),
+      status: session.status,
+      messages: session.messages,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/api/tickets/quick', authenticateToken, async (req, res, next) => {
+  try {
+    const userId = getUserId(req.user);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const body = req.body || {};
+    const issue = typeof body.issue === 'string' ? redactText(body.issue).trim() : '';
+    const priority = typeof body.priority === 'string'
+      ? body.priority.trim().toLowerCase()
+      : '';
+    if (!issue) {
+      return res.status(400).json({ error: 'Enter a short description of the issue.' });
+    }
+    if (issue.length > 10000) {
+      return res.status(413).json({
+        error: 'Issue descriptions must be 10,000 characters or fewer.',
+      });
+    }
+    if (!ALLOWED_PRIORITIES.has(priority)) {
+      return res.status(400).json({ error: 'Choose low, medium, high, or urgent priority.' });
+    }
+
+    const requestedSessionId = body.sessionId;
+    let chatSession;
+    if (requestedSessionId !== undefined && requestedSessionId !== null) {
+      if (
+        typeof requestedSessionId !== 'string' ||
+        !mongoose.Types.ObjectId.isValid(requestedSessionId)
+      ) {
+        return res.status(404).json({ error: 'Conversation not found.' });
+      }
+      chatSession = await findOwnedSession(requestedSessionId, userId);
+      if (!chatSession) {
+        return res.status(404).json({ error: 'Conversation not found.' });
+      }
+    } else {
+      chatSession = await ChatSession.findOne({ userId, status: 'active' }).sort({ updatedAt: -1 });
+      if (!chatSession) {
+        chatSession = await ChatSession.create({ userId, status: 'active', messages: [] });
+      }
+    }
+
+    if (chatSession.status !== 'active') {
+      return res.status(409).json({
+        error: 'This conversation is closed. Start a new chat to continue.',
+      });
+    }
+    if (chatSession.messages.some((message) => message.pending)) {
+      return res.status(409).json({
+        error: 'Wait for the current assistant response before creating a ticket.',
+      });
+    }
+
+    const ticket = await actionService.createSupportTicket(
+      req.user.email,
+      issue,
+      priority,
+      req.user
+    );
+    chatSession.messages.push({
+      sender: 'AI',
+      text: `Your support ticket was created. Ticket ID: ${ticket.ticketId}`,
+      citations: [],
+      latencyMs: 0,
+      timestamp: new Date(),
+    });
+    await chatSession.save();
+
+    return res.status(201).json({
+      ticketId: ticket.ticketId,
+      chatSessionId: String(chatSession._id),
+      status: chatSession.status,
+      messages: chatSession.messages,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post(
+  '/api/chat/:sessionId/messages/:messageId/feedback',
+  authenticateToken,
+  async (req, res, next) => {
+    try {
+      const userId = getUserId(req.user);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const feedback = req.body && req.body.feedback;
+      if (feedback !== null && feedback !== 'helpful' && feedback !== 'not_helpful') {
+        return res.status(400).json({
+          error: 'Feedback must be helpful, not_helpful, or null.',
+        });
+      }
+      if (!mongoose.Types.ObjectId.isValid(req.params.messageId)) {
+        return res.status(404).json({ error: 'Assistant message not found.' });
+      }
+
+      const chatSession = await findOwnedSession(req.params.sessionId, userId);
+      if (!chatSession) {
+        return res.status(404).json({ error: 'Conversation not found.' });
+      }
+
+      const message = chatSession.messages.id(req.params.messageId);
+      if (!message || message.sender !== 'AI') {
+        return res.status(404).json({ error: 'Assistant message not found.' });
+      }
+
+      message.feedback = feedback;
+      await chatSession.save();
+      return res.json({ feedback: message.feedback });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 router.delete(
   '/api/chat/:sessionId',
   authenticateToken,
@@ -338,6 +590,11 @@ router.patch(
           error: 'This conversation is closed. Start a new chat to continue.',
         });
       }
+      if (chatSession.messages.some((message) => message.pending)) {
+        return res.status(409).json({
+          error: 'Wait for the current assistant response before editing a message.',
+        });
+      }
       const userMessage = chatSession.messages[messageIndex];
       if (!userMessage || userMessage.sender !== 'user') {
         return res.status(400).json({ error: 'Only your own messages can be edited.' });
@@ -355,7 +612,10 @@ router.patch(
         chatSession._id,
         validatedMessage.message,
         req.user,
-        tone
+        tone,
+        true,
+        '',
+        getConversationHistory(chatSession, messageIndex)
       );
       return res.json({
         ...result,
@@ -397,6 +657,11 @@ router.post(
           error: 'This conversation is closed. Start a new chat to continue.',
         });
       }
+      if (chatSession.messages.some((message) => message.pending)) {
+        return res.status(409).json({
+          error: 'Wait for the current assistant response before regenerating a reply.',
+        });
+      }
       const assistantMessage = chatSession.messages[messageIndex];
       if (!assistantMessage || assistantMessage.sender !== 'AI') {
         return res.status(400).json({ error: 'Only AI messages can be regenerated.' });
@@ -431,7 +696,9 @@ router.post(
         validatedMessage.message,
         req.user,
         tone,
-        false
+        false,
+        '',
+        getConversationHistory(chatSession, userMessageIndex)
       );
       return res.json({
         ...result,
@@ -503,32 +770,53 @@ router.post(
         }
       }
 
+      if (chatSession.messages.some((chatMessage) => chatMessage.pending)) {
+        return res.status(409).json({
+          error: 'Wait for the current assistant response before sending another message.',
+        });
+      }
+
+      const history = getConversationHistory(chatSession, chatSession.messages.length);
       chatSession.messages.push({
         sender: 'user',
         text: message,
         attachmentName: req.attachmentName,
         citations: [],
         latencyMs: 0,
+        pending: true,
         timestamp: new Date(),
       });
+      const userMessage = chatSession.messages[chatSession.messages.length - 1];
+      chatSession.messages.push({
+        sender: 'AI',
+        text: 'Thinking…',
+        citations: [],
+        pending: true,
+        timestamp: new Date(),
+      });
+      const assistantMessage = chatSession.messages[chatSession.messages.length - 1];
       await chatSession.save();
 
-      const { result, chatSession: updatedSession } = await generateAndSaveReply(
-        chatSession._id,
-        message,
-        req.user,
-        tone,
-        true,
-        req.attachmentText || ''
-      );
-
-      return res.json({
-        ...result,
-        chatSessionId: String(updatedSession._id),
-        status: updatedSession.status,
+      res.status(202).json({
+        chatSessionId: String(chatSession._id),
+        status: chatSession.status,
+        messages: chatSession.messages,
         userMessageText: message,
         attachmentName: req.attachmentName,
       });
+      setImmediate(() => {
+        void finishPendingReply({
+          sessionId: chatSession._id,
+          userMessageId: userMessage._id,
+          assistantMessageId: assistantMessage._id,
+          message,
+          user: req.user,
+          tone,
+          userContext: req.attachmentText || '',
+          history,
+        });
+      });
+      return undefined;
     } catch (error) {
       return next(error);
     }

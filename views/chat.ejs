@@ -51,7 +51,7 @@
         color-scheme: dark;
       }
       body { background-color: var(--page-bg) !important; color: var(--page-fg) !important; }
-      #chat-sidebar, #chat-form, #chat-search { background-color: var(--surface-bg) !important; border-color: var(--border-color) !important; }
+      #chat-sidebar, #chat-form, #chat-search, #message-search { background-color: var(--surface-bg) !important; border-color: var(--border-color) !important; }
       #conversation { background-color: var(--conversation-bg) !important; border-color: var(--border-color) !important; }
       header, #chat-sidebar .border-b, #chat-sidebar .border-t { border-color: var(--border-color) !important; }
       #conversation article > div:first-child:not(.bg-cyan-500), #typing-indicator {
@@ -81,17 +81,20 @@
       #chat-sidebar .text-slate-500, #chat-app .text-slate-500,
       #chat-app .text-slate-600, #chat-app .text-slate-700,
       #chat-app .text-slate-400 { color: var(--muted-color) !important; }
-      #chat-search, #message { color: var(--page-fg); }
-      #settings-dialog { background-color: var(--surface-bg); color: var(--page-fg); }
+      #chat-search, #message-search, #message { color: var(--page-fg); }
+      #settings-dialog, #quick-ticket-dialog { background-color: var(--surface-bg); color: var(--page-fg); }
       html[data-theme='light'] .markdown-body pre { background: #e2e8f0; }
       @media print {
         @page { margin: 18mm; }
+        html, body { height: auto !important; overflow: visible !important; }
         body { background: #ffffff !important; color: #0f172a !important; }
         #chat-sidebar, #sidebar-backdrop, header, #chat-app > :not(#conversation),
-        #closed-session, #error-message, #edit-indicator, #settings-dialog,
+        #closed-session, #error-message, #edit-indicator, #settings-dialog, #quick-ticket-dialog,
         .message-actions, #typing-indicator, #attachment-preview,
         #recording-indicator { display: none !important; }
-        #chat-app { display: block !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+        #chat-shell { display: block !important; height: auto !important; overflow: visible !important; }
+        #chat-shell > div { height: auto !important; overflow: visible !important; }
+        #chat-app { display: block !important; height: auto !important; max-width: none !important; margin: 0 !important; overflow: visible !important; padding: 0 !important; }
         #conversation { display: block !important; min-height: 0 !important; overflow: visible !important; border: 0 !important; background: #ffffff !important; padding: 0 !important; }
         #conversation::before { content: "BlockAidex Conversation"; display: block; margin-bottom: 1.5rem; font-size: 22pt; font-weight: 700; }
         #conversation article { max-width: 100% !important; break-inside: avoid; margin-bottom: 1rem; }
@@ -101,18 +104,15 @@
       }
     </style>
   </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <body class="h-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
     <div id="sidebar-backdrop" class="fixed inset-0 z-20 hidden bg-slate-950/60 md:hidden"></div>
-    <div class="flex min-h-screen">
-      <aside id="chat-sidebar" class="fixed inset-y-0 left-0 z-30 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform dark:border-slate-800 dark:bg-slate-900 md:static md:translate-x-0">
+    <div id="chat-shell" class="flex h-screen overflow-hidden">
+      <aside id="chat-sidebar" class="fixed inset-y-0 left-0 z-30 flex h-screen w-72 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform dark:border-slate-800 dark:bg-slate-900 md:static md:translate-x-0">
         <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800">
           <a href="/chat" class="flex items-center gap-3">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-cyan-400 font-black text-slate-950">B</span>
             <span class="font-semibold">BlockAidex</span>
           </a>
-          <button id="collapse-sidebar" type="button" aria-label="Collapse chat history" class="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white md:block">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h16"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 5v14"/></svg>
-          </button>
         </div>
         <div class="p-4">
           <button id="new-chat" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300">
@@ -136,15 +136,16 @@
         </div>
       </aside>
 
-      <div class="flex min-w-0 flex-1 flex-col">
-        <header class="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
           <div class="flex items-center gap-3">
-            <button id="toggle-sidebar" type="button" aria-label="Open chat history" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
+            <button id="toggle-sidebar" type="button" aria-label="Toggle chat history" aria-expanded="true" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h16"/></svg>
             </button>
             <span class="text-sm font-medium text-slate-600 dark:text-slate-300">IT Assistant</span>
           </div>
           <div class="flex items-center gap-2 sm:gap-4">
+            <button id="open-ticket-dialog" type="button" class="rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-300 sm:text-sm">Create Ticket</button>
             <button id="chat-settings-button" type="button" aria-label="Chat settings" title="Chat settings" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-500 dark:border-slate-700 dark:text-slate-300">
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m19.4 15 .1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 1 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a1.8 1.8 0 1 1 0-3.6h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 1 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 1 1 0 3.6h-.2a1.8 1.8 0 0 0-.9 3Z"/></svg>
             </button>
@@ -169,14 +170,16 @@
           </div>
         </header>
 
-        <main id="chat-app" data-current-session-id="<%= chatSession ? chatSession._id : '' %>" class="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
-          <div class="mb-5">
+        <main id="chat-app" data-current-session-id="<%= chatSession ? chatSession._id : '' %>" data-user-email="<%= user.email %>" class="flex min-h-0 w-full flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6 sm:py-5">
+          <div class="mb-3 shrink-0">
             <p class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">Workplace help</p>
-            <h1 class="mt-2 text-3xl font-semibold tracking-tight">How can we help?</h1>
-            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Ask about company IT procedures. Answers are grounded in the approved SOP library.</p>
+            <h1 class="mt-1 text-2xl font-semibold tracking-tight">How can we help?</h1>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Ask about company IT procedures. Answers are grounded in the approved SOP library.</p>
           </div>
 
-          <div id="conversation" aria-live="polite" aria-relevant="additions" class="min-h-[40vh] flex-1 space-y-5 overflow-y-auto rounded-2xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/70 sm:p-6"></div>
+          <label for="message-search" class="sr-only">Search this conversation</label>
+          <input id="message-search" type="search" placeholder="Search this conversation and chat history" class="mb-3 w-full shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none transition focus:border-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400">
+          <div id="conversation" aria-live="polite" aria-relevant="additions" class="min-h-0 flex-1 space-y-5 overflow-y-auto scroll-smooth rounded-2xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/70 sm:p-6"></div>
 
           <div id="closed-session" class="mt-4 hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
             This conversation is closed. Start a new chat to continue with the IT assistant.
@@ -233,6 +236,40 @@
             </form>
           </dialog>
 
+          <dialog id="quick-ticket-dialog" aria-labelledby="quick-ticket-title" class="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+            <form id="quick-ticket-form" class="space-y-5 p-6">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="quick-ticket-title" class="text-xl font-semibold">Create a support ticket</h2>
+                  <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">IT support will use your signed-in account details.</p>
+                </div>
+                <button id="close-ticket-dialog" type="button" aria-label="Close ticket form" class="rounded-lg px-2 py-1 text-xl leading-6 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">×</button>
+              </div>
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium">Email</span>
+                <input id="ticket-email" type="email" readonly class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950">
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium">Issue description</span>
+                <textarea id="ticket-issue" name="issue" rows="4" maxlength="10000" required placeholder="Briefly describe the issue..." class="w-full resize-y rounded-xl border border-slate-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-cyan-500 dark:border-slate-700 dark:focus:border-cyan-400"></textarea>
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium">Priority</span>
+                <select id="ticket-priority" name="priority" class="w-full rounded-xl border border-slate-200 bg-transparent px-3 py-2.5 text-sm dark:border-slate-700">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </label>
+              <p id="ticket-error" role="alert" class="hidden text-sm text-rose-600 dark:text-rose-300"></p>
+              <div class="flex justify-end gap-3">
+                <button id="cancel-ticket" type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Cancel</button>
+                <button id="submit-ticket" type="submit" class="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300">Submit ticket</button>
+              </div>
+            </form>
+          </dialog>
+
           <div id="attachment-preview" class="mb-2 hidden items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="m8 12.5 6.7-6.7a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 0 1-7.1-7.1l8.5-8.5"/></svg>
             <span id="attachment-name" class="min-w-0 flex-1 truncate"></span>
@@ -270,6 +307,7 @@
       const historyList = document.getElementById('history-list');
       const historyEmpty = document.getElementById('history-empty');
       const searchInput = document.getElementById('chat-search');
+      const messageSearchInput = document.getElementById('message-search');
       const conversation = document.getElementById('conversation');
       const form = document.getElementById('chat-form');
       const messageInput = document.getElementById('message');
@@ -288,6 +326,11 @@
       const sunIcon = document.getElementById('theme-sun-icon');
       const moonIcon = document.getElementById('theme-moon-icon');
       const settingsDialog = document.getElementById('settings-dialog');
+      const quickTicketDialog = document.getElementById('quick-ticket-dialog');
+      const quickTicketForm = document.getElementById('quick-ticket-form');
+      const quickTicketButton = document.getElementById('open-ticket-dialog');
+      const ticketSubmitButton = document.getElementById('submit-ticket');
+      const ticketError = document.getElementById('ticket-error');
       const exportButton = document.getElementById('export-button');
       const exportMenu = document.getElementById('export-menu');
       let currentSessionId = app.dataset.currentSessionId || null;
@@ -301,6 +344,10 @@
       let recognition = null;
       let isRecording = false;
       let voiceBaseText = '';
+      let pendingPollTimer = null;
+      let isPollingPending = false;
+      let pollErrorShown = false;
+      let sidebarOpen = window.matchMedia('(min-width: 768px)').matches;
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
       const initialThemeIsDark = document.documentElement.classList.contains('dark');
@@ -316,6 +363,7 @@
         messageInput.disabled = true;
         sendButton.disabled = true;
       }
+      document.getElementById('ticket-email').value = app.dataset.userEmail || '';
       try {
         const savedTone = localStorage.getItem('blockaidex-ai-tone');
         if (['Friendly', 'Professional', 'Concise'].includes(savedTone)) {
@@ -348,6 +396,46 @@
         return data;
       }
 
+      function schedulePendingPoll() {
+        if (pendingPollTimer) {
+          window.clearTimeout(pendingPollTimer);
+          pendingPollTimer = null;
+        }
+        if (!currentSessionId || !currentMessages.some((message) => message.pending)) return;
+        pendingPollTimer = window.setTimeout(pollPendingReply, 1500);
+      }
+
+      async function pollPendingReply() {
+        pendingPollTimer = null;
+        if (isPollingPending || !currentSessionId) return;
+        const sessionId = currentSessionId;
+        isPollingPending = true;
+        try {
+          const session = await readJson(await fetch(
+            `/api/chat/${encodeURIComponent(sessionId)}`,
+            { headers: { Accept: 'application/json' } }
+          ));
+          if (currentSessionId !== sessionId) return;
+          currentSessionStatus = session.status;
+          renderConversation(session.messages);
+          updateComposer();
+          if (pollErrorShown) hideError();
+          pollErrorShown = false;
+          if (!session.messages.some((message) => message.pending)) {
+            await loadHistory();
+          }
+        } catch (error) {
+          console.error('The pending assistant response could not be checked.', error);
+          if (!pollErrorShown) {
+            showError('The assistant is still working, but its status could not be refreshed. Retrying…');
+            pollErrorShown = true;
+          }
+        } finally {
+          isPollingPending = false;
+          schedulePendingPoll();
+        }
+      }
+
       function setTheme(theme) {
         const isDark = theme === 'dark';
         document.documentElement.classList.toggle('dark', isDark);
@@ -372,10 +460,13 @@
       function updateComposer() {
         const closed = currentSessionId && currentSessionStatus !== 'active';
         const generating = Boolean(activeRequestController);
+        const waitingForReply = currentMessages.some((message) => message.pending);
         closedBanner.classList.toggle('hidden', !closed);
-        messageInput.disabled = Boolean(closed || generating);
-        sendButton.disabled = Boolean(closed || (generating && sendButton.dataset.stopping === 'true'));
-        sendButton.textContent = generating
+        messageInput.disabled = Boolean(closed || generating || waitingForReply);
+        sendButton.disabled = Boolean(closed || waitingForReply || (generating && sendButton.dataset.stopping === 'true'));
+        sendButton.textContent = waitingForReply
+          ? 'Thinking…'
+          : generating
           ? sendButton.dataset.stopping === 'true' ? 'Stopping…' : 'Stop generating'
           : editingMessageIndex === null ? 'Send' : 'Save & resend';
         messageInput.placeholder = closed
@@ -384,6 +475,7 @@
         attachButton.disabled = Boolean(closed || generating || editingMessageIndex !== null);
         attachmentInput.disabled = attachButton.disabled;
         voiceButton.disabled = Boolean(closed || generating);
+        quickTicketButton.disabled = Boolean(waitingForReply || generating);
         document.getElementById('new-chat').disabled = generating;
         document.querySelectorAll('#history-list button').forEach((button) => {
           button.disabled = generating;
@@ -527,7 +619,16 @@
           : 'rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100';
         const content = document.createElement('div');
         content.className = 'break-words text-sm leading-6';
-        if (message.sender === 'AI') {
+        content.dataset.messageContent = 'true';
+        if (message.pending) {
+          content.className += ' flex items-center gap-2 text-slate-500';
+          const spinner = document.createElement('span');
+          spinner.className = 'h-4 w-4 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent';
+          spinner.setAttribute('aria-hidden', 'true');
+          const status = document.createElement('span');
+          status.textContent = 'Thinking…';
+          content.append(spinner, status);
+        } else if (message.sender === 'AI') {
           content.classList.add('markdown-body');
           content.innerHTML = DOMPurify.sanitize(marked.parse(message.text || ''), {
             FORBID_TAGS: ['img'],
@@ -545,7 +646,7 @@
           article.appendChild(attachmentBadge);
         }
 
-        if (!isUser && (message.sender === 'AI' || message.citations?.length || typeof message.latencyMs === 'number')) {
+        if (!isUser && !message.pending && (message.sender === 'AI' || message.citations?.length || typeof message.latencyMs === 'number')) {
           const tags = document.createElement('div');
           tags.className = 'mt-2 flex flex-wrap gap-2';
           (message.citations || []).forEach((citation) => {
@@ -569,15 +670,17 @@
         time.textContent = formatTime(message.timestamp);
         article.appendChild(time);
 
-        if (isUser || message.sender === 'AI') {
+        if (isUser || (message.sender === 'AI' && !message.pending)) {
           const actions = document.createElement('div');
-          actions.className = 'message-actions mt-2 flex gap-3 text-xs';
+          actions.className = 'message-actions mt-2 flex flex-wrap items-center gap-3 text-xs';
           if (isUser) {
             const editButton = document.createElement('button');
             editButton.type = 'button';
             editButton.textContent = 'Edit message';
             const temporaryAttachment = Boolean(message.attachmentName);
-            editButton.disabled = currentSessionStatus !== 'active' || temporaryAttachment;
+            editButton.disabled = currentSessionStatus !== 'active' ||
+              temporaryAttachment ||
+              currentMessages.some((candidate) => candidate.pending);
             if (temporaryAttachment) {
               editButton.title = 'File contents are temporary. Send a new request with the file attached to change the prompt.';
             }
@@ -590,6 +693,32 @@
             copyButton.textContent = 'Copy';
             copyButton.className = 'text-slate-500 underline-offset-2 hover:text-cyan-700 hover:underline dark:text-slate-400 dark:hover:text-cyan-300';
             copyButton.addEventListener('click', () => copyMessage(message.text || '', copyButton));
+            actions.appendChild(copyButton);
+              if (message._id && !message.pending) {
+                const feedbackPrompt = document.createElement('span');
+                feedbackPrompt.className = 'text-slate-500 dark:text-slate-400';
+                feedbackPrompt.textContent = 'Was this helpful?';
+                actions.appendChild(feedbackPrompt);
+                [
+                  { value: 'helpful', label: 'Thumbs up' },
+                  { value: 'not_helpful', label: 'Thumbs down' },
+                ].forEach(({ value, label }) => {
+                  const feedbackButton = document.createElement('button');
+                  feedbackButton.type = 'button';
+                  feedbackButton.title = label;
+                  feedbackButton.setAttribute('aria-label', label);
+                  feedbackButton.dataset.feedback = value;
+                  feedbackButton.setAttribute('aria-pressed', String(message.feedback === value));
+                  feedbackButton.className = 'rounded-md p-1 text-slate-500 transition hover:bg-cyan-100 hover:text-cyan-800 aria-pressed:bg-cyan-100 aria-pressed:text-cyan-800 dark:text-slate-400 dark:hover:bg-cyan-950 dark:hover:text-cyan-200 dark:aria-pressed:bg-cyan-950 dark:aria-pressed:text-cyan-200';
+                  feedbackButton.innerHTML = value === 'helpful'
+                    ? '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M7 10v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3Zm0 0 5-7a3 3 0 0 1 2 3v4h5a2 2 0 0 1 2 2l-1 6a2 2 0 0 1-2 2H7"/></svg>'
+                    : '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M7 14V4H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3Zm0 0 5 7a3 3 0 0 0 2-3v-4h5a2 2 0 0 0 2-2l-1-6a2 2 0 0 0-2-2H7"/></svg>';
+                  feedbackButton.addEventListener('click', () => {
+                    submitFeedback(message._id, message.feedback === value ? null : value, message, article);
+                  });
+                  actions.appendChild(feedbackButton);
+                });
+              }
             const regenerateButton = document.createElement('button');
             regenerateButton.type = 'button';
             regenerateButton.textContent = 'Regenerate';
@@ -598,13 +727,15 @@
               .reverse()
               .find((candidate) => candidate.sender === 'user');
             const temporaryAttachment = Boolean(precedingUserMessage && precedingUserMessage.attachmentName);
-            regenerateButton.disabled = currentSessionStatus !== 'active' || temporaryAttachment;
+            regenerateButton.disabled = currentSessionStatus !== 'active' ||
+              temporaryAttachment ||
+              currentMessages.some((candidate) => candidate.pending);
             if (temporaryAttachment) {
               regenerateButton.title = 'File contents are temporary. Send the request again with the file attached.';
             }
             regenerateButton.className = 'text-slate-500 underline-offset-2 hover:text-cyan-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:text-cyan-300';
             regenerateButton.addEventListener('click', () => regenerateMessage(messageIndex));
-            actions.append(copyButton, regenerateButton);
+            actions.appendChild(regenerateButton);
           }
           article.appendChild(actions);
         }
@@ -616,15 +747,52 @@
       function renderConversation(messages) {
         conversation.replaceChildren();
         currentMessages = Array.isArray(messages) ? messages : [];
+        const searchTerm = messageSearchInput.value.trim().toLowerCase();
         const visibleMessages = currentMessages
           .map((message, index) => ({ message, index }))
-          .filter(({ message }) => message.sender !== 'system');
+          .filter(({ message }) => {
+            if (message.sender === 'system') return false;
+            return !searchTerm || String(message.text || '').toLowerCase().includes(searchTerm);
+          });
         if (!visibleMessages.length) {
-          renderEmptyState();
+          if (searchTerm) {
+            const empty = document.createElement('p');
+            empty.className = 'py-8 text-center text-sm text-slate-500';
+            empty.textContent = 'No messages match your search.';
+            conversation.appendChild(empty);
+          } else {
+            renderEmptyState();
+          }
           updateExportAvailability();
           return;
         }
         visibleMessages.forEach(({ message, index }) => appendMessage(message, index));
+        if (searchTerm) {
+          conversation.querySelectorAll('[data-message-content]').forEach((content) => {
+            const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+            const textNodes = [];
+            while (walker.nextNode()) {
+              if (walker.currentNode.textContent.toLowerCase().includes(searchTerm)) {
+                textNodes.push(walker.currentNode);
+              }
+            }
+            textNodes.forEach((textNode) => {
+              const fragment = document.createDocumentFragment();
+              const expression = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+              let lastIndex = 0;
+              for (const match of textNode.textContent.matchAll(expression)) {
+                fragment.appendChild(document.createTextNode(textNode.textContent.slice(lastIndex, match.index)));
+                const highlight = document.createElement('mark');
+                highlight.className = 'rounded bg-amber-200 text-slate-950 dark:bg-amber-400';
+                highlight.textContent = match[0];
+                fragment.appendChild(highlight);
+                lastIndex = match.index + match[0].length;
+              }
+              fragment.appendChild(document.createTextNode(textNode.textContent.slice(lastIndex)));
+              textNode.replaceWith(fragment);
+            });
+          });
+        }
         conversation.scrollTop = conversation.scrollHeight;
         updateExportAvailability();
       }
@@ -692,6 +860,25 @@
           }, 1500);
         } catch (error) {
           showError(error.message || 'The message could not be copied.');
+        }
+      }
+
+      async function submitFeedback(messageId, feedback, message, article) {
+        try {
+          const result = await readJson(await fetch(
+            `/api/chat/${encodeURIComponent(currentSessionId)}/messages/${encodeURIComponent(messageId)}/feedback`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ feedback }),
+            }
+          ));
+          message.feedback = result.feedback;
+          article.querySelectorAll('[data-feedback]').forEach((button) => {
+            button.setAttribute('aria-pressed', String(button.dataset.feedback === result.feedback));
+          });
+        } catch (error) {
+          showError(error.message || 'Your feedback could not be saved.');
         }
       }
 
@@ -773,6 +960,7 @@
           currentSessionStatus = session.status;
           renderConversation(session.messages);
           updateComposer();
+          schedulePendingPoll();
           renderHistory();
           if (window.matchMedia('(max-width: 767px)').matches) setSidebarOpen(false);
         } catch (error) {
@@ -780,6 +968,7 @@
             currentSessionId = null;
             currentSessionStatus = null;
             renderConversation([]);
+            schedulePendingPoll();
             updateComposer();
           }
           showError(error.message || 'This conversation could not be loaded.');
@@ -798,6 +987,7 @@
           currentSessionId = created.id;
           currentSessionStatus = created.status;
           renderConversation([]);
+          schedulePendingPoll();
           updateComposer();
           await loadHistory();
           messageInput.focus();
@@ -823,6 +1013,7 @@
             currentSessionId = null;
             currentSessionStatus = null;
             renderConversation([]);
+            schedulePendingPoll();
             updateComposer();
           }
           renderHistory();
@@ -879,6 +1070,7 @@
               });
             }
           }
+          schedulePendingPoll();
 
           editingMessageIndex = null;
           messageInput.value = '';
@@ -900,6 +1092,7 @@
               ));
               currentSessionStatus = session.status;
               renderConversation(session.messages);
+              schedulePendingPoll();
               updateComposer();
             } catch (refreshError) {
               console.error('The conversation could not be refreshed after a failed action.', refreshError);
@@ -926,8 +1119,13 @@
       }
 
       function setSidebarOpen(open) {
+        sidebarOpen = open;
+        const toggleButton = document.getElementById('toggle-sidebar');
+        toggleButton.setAttribute('aria-expanded', String(open));
+        toggleButton.setAttribute('aria-label', open ? 'Close chat history' : 'Open chat history');
         if (window.matchMedia('(min-width: 768px)').matches) {
           sidebar.classList.toggle('md:hidden', !open);
+          backdrop.classList.add('hidden');
           return;
         }
         sidebar.classList.remove('md:hidden');
@@ -935,12 +1133,23 @@
         backdrop.classList.toggle('hidden', !open);
       }
 
+      setSidebarOpen(sidebarOpen);
+      window.addEventListener('resize', () => {
+        const desktop = window.matchMedia('(min-width: 768px)').matches;
+        if (desktop !== sidebarOpen) setSidebarOpen(desktop);
+      });
+
       document.getElementById('new-chat').addEventListener('click', createNewChat);
-      document.getElementById('toggle-sidebar').addEventListener('click', () => setSidebarOpen(true));
-      document.getElementById('collapse-sidebar').addEventListener('click', () => setSidebarOpen(false));
+      document.getElementById('toggle-sidebar').addEventListener('click', () => setSidebarOpen(!sidebarOpen));
       backdrop.addEventListener('click', () => setSidebarOpen(false));
       document.getElementById('dismiss-error').addEventListener('click', hideError);
-      searchInput.addEventListener('input', renderHistory);
+      function syncSearchInputs(source, target) {
+        target.value = source.value;
+        renderHistory();
+        renderConversation(currentMessages);
+      }
+      searchInput.addEventListener('input', () => syncSearchInputs(searchInput, messageSearchInput));
+      messageSearchInput.addEventListener('input', () => syncSearchInputs(messageSearchInput, searchInput));
       document.getElementById('cancel-edit').addEventListener('click', cancelEdit);
       attachButton.addEventListener('click', () => attachmentInput.click());
       attachmentInput.addEventListener('change', () => {
@@ -964,6 +1173,61 @@
       });
       document.getElementById('remove-attachment').addEventListener('click', clearSelectedAttachment);
       voiceButton.addEventListener('click', toggleVoiceInput);
+      messageInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+      });
+
+      quickTicketButton.addEventListener('click', () => {
+        if (quickTicketButton.disabled) return;
+        document.getElementById('ticket-email').value = app.dataset.userEmail || '';
+        quickTicketDialog.showModal();
+        document.getElementById('ticket-issue').focus();
+      });
+      ['close-ticket-dialog', 'cancel-ticket'].forEach((id) => {
+        document.getElementById(id).addEventListener('click', () => quickTicketDialog.close());
+      });
+      quickTicketDialog.addEventListener('click', (event) => {
+        if (event.target === quickTicketDialog) quickTicketDialog.close();
+      });
+      quickTicketForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (ticketSubmitButton.disabled) return;
+        ticketSubmitButton.disabled = true;
+        ticketSubmitButton.textContent = 'Creating…';
+        ticketError.textContent = '';
+        ticketError.classList.add('hidden');
+        try {
+          const result = await readJson(await fetch('/api/tickets/quick', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              issue: document.getElementById('ticket-issue').value,
+              priority: document.getElementById('ticket-priority').value,
+              ...(currentSessionId && currentSessionStatus === 'active'
+                ? { sessionId: currentSessionId }
+                : {}),
+            }),
+          }));
+          currentSessionId = result.chatSessionId;
+          currentSessionStatus = result.status;
+          renderConversation(result.messages);
+          updateComposer();
+          schedulePendingPoll();
+          quickTicketDialog.close();
+          quickTicketForm.reset();
+          document.getElementById('ticket-email').value = app.dataset.userEmail || '';
+          await loadHistory();
+        } catch (error) {
+          ticketError.textContent = error.message || 'The support ticket could not be created.';
+          ticketError.classList.remove('hidden');
+        } finally {
+          ticketSubmitButton.disabled = false;
+          ticketSubmitButton.textContent = 'Submit ticket';
+        }
+      });
 
       document.getElementById('chat-settings-button').addEventListener('click', () => {
         document.querySelector(`input[name="ai-tone"][value="${currentTone}"]`).checked = true;

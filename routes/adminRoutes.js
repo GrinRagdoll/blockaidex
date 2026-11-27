@@ -20,7 +20,13 @@ const upload = multer({
 
 router.get('/admin', requirePageAuth, requireAdmin, async (req, res, next) => {
   try {
-    const [queryStats, latencyStats, escalatedCount, escalatedChats] = await Promise.all([
+    const [
+      queryStats,
+      latencyStats,
+      satisfactionStats,
+      escalatedCount,
+      escalatedChats,
+    ] = await Promise.all([
       ChatSession.aggregate([
         { $unwind: '$messages' },
         { $match: { 'messages.sender': 'user' } },
@@ -41,6 +47,24 @@ router.get('/admin', requirePageAuth, requireAdmin, async (req, res, next) => {
         { $match: { 'messages.sender': 'AI', 'messages.latencyMs': { $gte: 0 } } },
         { $group: { _id: null, average: { $avg: '$messages.latencyMs' } } },
       ]),
+      ChatSession.aggregate([
+        { $unwind: '$messages' },
+        {
+          $match: {
+            'messages.sender': 'AI',
+            'messages.feedback': { $in: ['helpful', 'not_helpful'] },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            rated: { $sum: 1 },
+            helpful: {
+              $sum: { $cond: [{ $eq: ['$messages.feedback', 'helpful'] }, 1, 0] },
+            },
+          },
+        },
+      ]),
       ChatSession.countDocuments({ status: 'escalated' }),
       ChatSession.find({ status: 'escalated' })
         .sort({ updatedAt: 1 })
@@ -52,6 +76,10 @@ router.get('/admin', requirePageAuth, requireAdmin, async (req, res, next) => {
     const aiDeflectionRate = totalQueries
       ? Math.round((queryStats[0].deflected / totalQueries) * 1000) / 10
       : 0;
+    const ratedResponses = satisfactionStats[0] ? satisfactionStats[0].rated : 0;
+    const userSatisfactionRate = ratedResponses
+      ? Math.round((satisfactionStats[0].helpful / ratedResponses) * 1000) / 10
+      : 0;
 
     return res.render('admin', {
       user: req.user,
@@ -60,6 +88,8 @@ router.get('/admin', requirePageAuth, requireAdmin, async (req, res, next) => {
         totalQueries,
         aiDeflectionRate,
         avgLatencyMs: Math.round(latencyStats[0] ? latencyStats[0].average : 0),
+        userSatisfactionRate,
+        ratedResponses,
         escalatedTickets: escalatedCount,
       },
       escalatedChats,

@@ -22,12 +22,20 @@ const messageSchema = new mongoose.Schema(
       type: Number,
       min: 0,
     },
+    feedback: {
+      type: String,
+      enum: ['helpful', 'not_helpful', null],
+      default: null,
+    },
+    pending: {
+      type: Boolean,
+      default: false,
+    },
     timestamp: {
       type: Date,
       default: Date.now,
     },
-  },
-  { _id: false }
+  }
 );
 
 const chatSessionSchema = new mongoose.Schema(
